@@ -35,12 +35,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Kristalkill/vite-plugin-svg-sprite.git"
+    "url": "git+https://github.com/Kristalkill/vite-plugin-svgsg.git"
   },
   "bugs": {
-    "url": "https://github.com/Kristalkill/vite-plugin-svg-sprite/issues"
+    "url": "https://github.com/Kristalkill/vite-plugin-svgsg/issues"
   },
-  "homepage": "https://github.com/Kristalkill/vite-plugin-svg-sprite#readme",
+  "homepage": "https://github.com/Kristalkill/vite-plugin-svgsg#readme",
   "dependencies": {
     "fs": "0.0.1-security",
     "path": "^0.12.7"
