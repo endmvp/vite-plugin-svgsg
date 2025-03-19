@@ -1,0 +1,57 @@
+{
+  "name": "@endmvp/vite-plugin-svgsg",
+  "version": "1.0.0",
+  "description": "A Vite plugin to generate and manage SVG icon sprites. It scans a directory for SVG files, compiles them into a single sprite, and watches for changes to regenerate the sprite automatically.",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "type": "module",
+  "private": false,
+  "files": [
+    "build",
+    "README.md"
+  ],
+  "keywords": [
+    "plugin",
+    "svg",
+    "sprite",
+    "icon-sprite",
+    "svg-sprite",
+    "icons",
+    "web-icons",
+    "vite-plugin",
+    "frontend",
+    "icon-management",
+    "svg-icons",
+    "asset-sprite",
+    "automated-sprite",
+    "icon-sprite-generator",
+    "vite-plugin-svg",
+    "vite-plugin-svg-sprite"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "Vasyl Vovk (https://github.com/Kristalkill)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kristalkill/vite-plugin-svg-sprite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Kristalkill/vite-plugin-svg-sprite/issues"
+  },
+  "homepage": "https://github.com/Kristalkill/vite-plugin-svg-sprite#readme",
+  "dependencies": {
+    "fs": "0.0.1-security",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^4.5.4",
+    "vite": "^6.2.2"
+  },
+  "scripts": {
+    "build": "npx tsc --declaration"
+  },
+  "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
+}
