@@ -1,76 +1,133 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
-export default function IconSpritePlugin(iconsDir, outDir) {
-    async function ensureDirectoriesExist(iconsDirectory, outputPath) {
+import { posix } from 'path';
+import { optimize } from 'svgo';
+const DEFAULT_SVGO_CONFIG = {
+    multipass: true,
+    plugins: [
+        { name: 'removeAttrs', params: { attrs: ['width', 'height', 'id'] } },
+        { name: 'removeStyleElement' },
+        {
+            name: 'addAttributesToSVGElement',
+            params: { attributes: [{ xmlns: 'http://www.w3.org/2000/svg' }] },
+        },
+        { name: 'removeXMLProcInst' },
+        { name: 'removeComments' },
+        { name: 'removeDoctype' },
+        { name: 'convertShapeToPath' },
+    ],
+    js2svg: { pretty: false, indent: 0 },
+};
+export default function IconSpritePlugin({ iconsDir, outDir, svgoConfig = DEFAULT_SVGO_CONFIG, debounceWait = 100, }) {
+    const logError = (message, error) => {
+        console.error(`[IconSpritePlugin] ${message}`, error instanceof Error ? error.message : error);
+    };
+    const validateDirectories = () => {
+        if (!iconsDir || !outDir) {
+            throw new Error('Both iconsDir and outDir must be specified');
+        }
+        if (!path.isAbsolute(iconsDir)) {
+            throw new Error('iconsDir must be an absolute path or relative to cwd');
+        }
+        if (!path.isAbsolute(outDir)) {
+            throw new Error('outDir must be an absolute path or relative to cwd');
+        }
+    };
+    const debounce = (func, timeout = 300) => {
+        let timer;
+        return (...args) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => { func(...args); }, timeout);
+        };
+    };
+    const ensureDirectoriesExist = async (iconsPath, outputPath) => {
         try {
-            await fs.access(iconsDirectory);
+            await fs.access(iconsPath);
         }
         catch {
-            throw new Error(`Source directory ${iconsDir} does not exist`);
+            throw new Error(`Source directory ${iconsPath} does not exist`);
         }
         try {
             await fs.access(outputPath);
         }
         catch {
             await fs.mkdir(outputPath, { recursive: true });
-            console.log(`Output directory ${outDir} created`);
+            console.log(`Output directory ${outputPath} created`);
         }
-    }
-    function validateDirectories() {
-        if (!iconsDir || !outDir) {
-            throw new Error('Both iconsDir (source directory for SVG icons) and outDir (output directory) must be specified');
-        }
-    }
-    async function getSvgFiles(dir, baseDir) {
+    };
+    const getSvgFiles = async (dir, baseDir) => {
         const entries = await fs.readdir(dir, { withFileTypes: true });
         const files = [];
         for (const entry of entries) {
             const fullPath = path.join(dir, entry.name);
             const relativePath = path.relative(baseDir, fullPath);
             if (entry.isDirectory()) {
-                const subFiles = await getSvgFiles(fullPath, baseDir);
-                files.push(...subFiles);
+                files.push(...(await getSvgFiles(fullPath, baseDir)));
             }
-            else if (entry.isFile() && entry.name.endsWith('.svg')) {
-                const id = relativePath.replace('.svg', '').replace(/\\/g, '_');
+            else if (entry.isFile() && entry.name.toLowerCase().endsWith('.svg')) {
+                const id = posix
+                    .normalize(relativePath)
+                    .replace(/\.svg$/i, '')
+                    .replace(/[^a-zA-Z0-9-_]/g, '_');
                 files.push({ id, filePath: fullPath });
+                console.log(`Found SVG: ${fullPath} with ID: ${id}`);
             }
         }
         return files;
-    }
-    async function generateIconSprite() {
-        await validateDirectories();
-        const iconsPath = path.join(process.cwd(), iconsDir);
-        const outputPath = path.join(process.cwd(), outDir);
-        await ensureDirectoriesExist(iconsPath, outputPath);
-        const files = await getSvgFiles(iconsPath, iconsPath);
-        let symbols = '';
-        for (const { id, filePath } of files) {
-            let svgContent = await fs.readFile(filePath, 'utf8');
-            svgContent = svgContent
-                .replace(/id="[^"]+"/g, '')
-                .replace(/<svg([^>]+)width="[^"]*"([^>]+)>/, '<svg$1$2>')
-                .replace(/<svg([^>]+)height="[^"]*"([^>]+)>/, '<svg$1$2>')
-                .replace('<svg', `<symbol id="${id}"`)
-                .replace('</svg>', '</symbol>');
-            symbols += svgContent + '\n';
+    };
+    const optimizeSvg = async (content, id, filePath) => {
+        const result = optimize(content, { ...svgoConfig, path: filePath });
+        if ('error' in result && result.error) {
+            throw new Error(`Failed to optimize ${filePath}: ${result.error}`);
         }
-        const sprite = `<svg width="0" height="0" style="display: none">\n${symbols}</svg>`;
-        await fs.writeFile(path.join(outputPath, 'icon-sprite.svg'), sprite);
-        console.log('Icon sprite generated successfully!');
-    }
+        return result.data
+            .replace(/<svg([^>]*)>/i, `<symbol id="${id}"$1>`)
+            .replace(/<\/svg>/i, '</symbol>');
+    };
+    const generateIconSprite = async () => {
+        try {
+            validateDirectories();
+            const iconsPath = path.resolve(process.cwd(), iconsDir);
+            const outputPath = path.resolve(process.cwd(), outDir);
+            await ensureDirectoriesExist(iconsPath, outputPath);
+            const files = await getSvgFiles(iconsPath, iconsPath);
+            if (!files.length) {
+                console.warn('[IconSpritePlugin] No SVG files found in', iconsPath);
+                return;
+            }
+            const symbols = await Promise.all(files.map(async ({ id, filePath }) => {
+                try {
+                    const svgContent = await fs.readFile(filePath, 'utf8');
+                    return await optimizeSvg(svgContent, id, filePath);
+                }
+                catch (error) {
+                    logError(`Error processing ${filePath}`, error);
+                    return '';
+                }
+            }));
+            const spriteContent = `<svg width="0" height="0" style="display: none">\n${symbols.filter(Boolean).join('\n')}\n</svg>`;
+            await fs.writeFile(path.join(outputPath, 'icon-sprite.svg'), spriteContent);
+            console.log('Icon sprite generated successfully!');
+        }
+        catch (error) {
+            logError('Failed to generate icon sprite', error);
+        }
+    };
+    const debouncedGenerateSprite = debounce(generateIconSprite, debounceWait);
     return {
         name: 'IconSpritePlugin',
         buildStart() {
             return generateIconSprite();
         },
         configureServer(server) {
-            const iconsPath = path.join(process.cwd(), iconsDir);
+            const iconsPath = path.resolve(process.cwd(), iconsDir);
             server.watcher.add(path.join(iconsPath, '**/*.svg'));
             server.watcher.on('change', async (changedPath) => {
-                if (changedPath.endsWith('.svg') && !changedPath.includes('icon-sprite.svg')) {
+                if (changedPath.toLowerCase().endsWith('.svg') &&
+                    !changedPath.includes('icon-sprite.svg')) {
                     console.log(`SVG file changed: ${changedPath}`);
-                    await generateIconSprite();
+                    await debouncedGenerateSprite();
+                    server.ws.send({ type: 'full-reload' });
                 }
             });
         },
