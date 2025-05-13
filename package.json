@@ -1,6 +1,6 @@
 {
   "name": "@endmvp/vite-plugin-svgsg",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "A Vite plugin to generate and manage SVG icon sprites. It scans a directory for SVG files, compiles them into a single sprite, and watches for changes to regenerate the sprite automatically.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
