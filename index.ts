@@ -40,15 +40,17 @@ export default function IconSpritePlugin({
         console.error(`[IconSpritePlugin] ${message}`, error instanceof Error ? error.message : error);
     };
 
-    const validateDirectories = (): void => {
+    const validateDirectories = async (): Promise<void> => {
         if (!iconsDir || !outDir) {
             throw new Error('Both iconsDir and outDir must be specified');
         }
-        if (!path.isAbsolute(iconsDir)) {
-            throw new Error('iconsDir must be an absolute path or relative to cwd');
+        const iconsDirStat = await fs.stat(iconsDir);
+        if (!iconsDirStat.isDirectory()) {
+            throw new Error('iconsDir must be a directory');
         }
-        if (!path.isAbsolute(outDir)) {
-            throw new Error('outDir must be an absolute path or relative to cwd');
+        const outDirStat = await fs.stat(outDir);
+        if (!outDirStat.isDirectory()) {
+            throw new Error('outDir must be a directory');
         }
     };
 
